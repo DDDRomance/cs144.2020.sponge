@@ -5,6 +5,8 @@
 
 #include <cstdint>
 #include <string>
+#include <set>
+using namespace std;
 
 //! \brief A class that assembles a series of excerpts from a byte stream (possibly out of order,
 //! possibly overlapping) into an in-order byte stream.
@@ -14,7 +16,31 @@ class StreamReassembler {
 
     ByteStream _output;  //!< The reassembled in-order byte stream
     size_t _capacity;    //!< The maximum number of bytes
+    
+    class Segment{
+      public:
+        size_t start = 0, end = 0;
+        string data{};
+        bool eof = false;
+        Segment (size_t _start, size_t _end, string _data, bool _eof): start( _start ), end( _end ), data (_data), eof (_eof){} 
+        Segment() = default;
+        bool operator < (const Segment &anoth)const{return start < anoth.start;}
+    };
 
+    Segment Seg_Merge (Segment seg_L, Segment seg_R){
+      if (seg_L.start <= seg_R.start && seg_R.end <= seg_L.end) return seg_L;
+      if (seg_R.start <= seg_L.start && seg_L.end <= seg_R.end) return seg_R;
+      Segment seg_New;
+      seg_New.start = seg_L.start;
+      seg_New.end = seg_R.end;
+      seg_New.data = seg_L.data + seg_R.data.substr(seg_L.end + 1 - seg_R.start, seg_R.end - seg_L.end);
+      seg_New.eof = seg_R.eof;
+      return seg_New;
+    }
+
+    size_t solved_bytes = 0;
+    size_t unsolved_bytes = 0;
+    set <Segment> Buf;
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
     //! \note This capacity limits both the bytes that have been reassembled,
@@ -43,6 +69,7 @@ class StreamReassembler {
     //!
     //! \note If the byte at a particular index has been submitted twice, it
     //! should only be counted once for the purpose of this function.
+    void insert_into_buf (Segment seg_new);
     size_t unassembled_bytes() const;
 
     //! \brief Is the internal state empty (other than the output stream)?
