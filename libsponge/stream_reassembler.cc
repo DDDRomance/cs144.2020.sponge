@@ -16,7 +16,7 @@ void StreamReassembler::insert_into_buf (Segment seg_new){
     while (1){
         auto itR = Buf.lower_bound (seg_new);
         if (itR != Buf.end()){
-            if (seg_new.end >= itR->start - 1){
+            if (seg_new.end + 1 >= itR->start){
                 seg_new = Seg_Merge (seg_new, *itR);
                 unsolved_bytes -= itR->end - itR->start + 1;
                 Buf.erase (itR);
@@ -29,7 +29,7 @@ void StreamReassembler::insert_into_buf (Segment seg_new){
         auto itL = Buf.lower_bound (seg_new);
         if (itL != Buf.begin()){
             itL --;
-            if (itL->end >= seg_new.start - 1){
+            if (itL->end + 1 >= seg_new.start){
                 seg_new = Seg_Merge (*itL, seg_new);
                 unsolved_bytes -= itL->end - itL->start + 1;
                 Buf.erase (itL);
@@ -57,10 +57,10 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     insert_into_buf (seg_new);
     if (!Buf.empty() && Buf.begin()->start == solved_bytes){
         auto it = Buf.begin();
-        _output.write (it->data);
+        size_t truly_back = _output.write (it->data);
         if (it->eof) _output.end_input ();
-        solved_bytes = it->end + 1;
-        unsolved_bytes -= it->end - it->start + 1;
+        solved_bytes += truly_back;
+        unsolved_bytes -= truly_back;
         Buf.erase (it);
     }
 }
