@@ -11,6 +11,33 @@
 
 //! \brief The "sender" part of a TCP implementation.
 
+class RXTimer{
+  private:  
+    size_t time_passed = 0;
+    size_t RTO_now;
+    size_t RTO_intial;
+    bool running_type = 0;
+  public:
+    RXTimer(uint16_t _RTO): RTO_now(_RTO), RTO_intial(_RTO) {}
+    void time_plus (size_t timeplus){ 
+      if (running_type)
+        time_passed += timeplus;
+    }
+    void reset_time (){ time_passed = 0; }
+    void reset_RTO (){ RTO_now = RTO_intial; }
+    void double_RTO (){ RTO_now <<= 1; }
+    bool outofdate (){ return time_passed >= RTO_now; }
+    bool running(){ return running_type; }
+    void startup (){ 
+      time_passed = 0;
+      running_type = 1;
+    }
+    void shutup (){
+      running_type = 0;
+      time_passed = 0;
+    }
+};
+
 //! Accepts a ByteStream, divides it up into segments and sends the
 //! segments, keeps track of which segments are still in-flight,
 //! maintains the Retransmission Timer, and retransmits in-flight
@@ -23,8 +50,20 @@ class TCPSender {
     //! outbound queue of segments that the TCPSender wants sent
     std::queue<TCPSegment> _segments_out{};
 
+    std::queue<TCPSegment> undone_data{};
+
+    uint64_t _recv_ackno = 0;
+    uint16_t _window_size = 1;
+    // bool recv_ackno_valid = 0;
+
+    uint32_t rx_times = 0;
+    bool _send_syn = 0;
+    bool _send_fin = 0;
+
     //! retransmission timer for the connection
     unsigned int _initial_retransmission_timeout;
+
+    RXTimer RXT;
 
     //! outgoing stream of bytes that have not yet been sent
     ByteStream _stream;
