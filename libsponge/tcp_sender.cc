@@ -86,23 +86,24 @@ void TCPSender::fill_window() {
 //! \param window_size The remote receiver's advertised window size
 //! \returns `false` if the ackno appears invalid (acknowledges something the TCPSender hasn't sent yet)
 bool TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_size) {
-    // DUMMY_CODE(ackno, window_size);
-    uint64_t abs_ackno = unwrap (ackno, _isn, _next_seqno);
+    uint64_t abs_ackno = unwrap(ackno, _isn, _next_seqno);
     if (abs_ackno > _next_seqno) return false;
     rx_times = 0;
     RXT.reset_RTO();
-    _recv_ackno = abs_ackno;
     _window_size = window_size;
-    while (!undone_data.empty()){
-        TCPSegment it = undone_data.front();
-        uint64_t abs_seqno = unwrap(it.header().seqno, _isn, _next_seqno);
-        if (abs_seqno + it.length_in_sequence_space() <= abs_ackno){
-            undone_data.pop ();
+    if (abs_ackno > _recv_ackno) {
+        _recv_ackno = abs_ackno;
+        while (!undone_data.empty()){
+            TCPSegment it = undone_data.front();
+            uint64_t abs_seqno = unwrap(it.header().seqno, _isn, _next_seqno);
+            if (abs_seqno + it.length_in_sequence_space() <= abs_ackno){
+                undone_data.pop();
+            }
+            else break;
         }
-        else break;
+        if (!undone_data.empty()) RXT.startup();
+        else RXT.shutup();
     }
-    if (!undone_data.empty()) RXT.startup();
-    else RXT.shutup();
     fill_window();
     return true;
 }
